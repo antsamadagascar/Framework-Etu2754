@@ -1,18 +1,19 @@
 package controller;
 
-import annotation.Get;
 import annotation.MyAnnotation;
 
-@MyAnnotation(value = "")
+@MyAnnotation(value = "Controller")
 public class TestController {
     String name ;
 
-    @Get("/itu")
-    public String getName() {
-        return "Bienvenu dans le site de Itu!";
+    // @Get("/mg-get")
+    public String getOther() {
+        return "Okay";
     }
 
+    
     public void setName(String name) {
         this.name = name;
     }
+    
 }
