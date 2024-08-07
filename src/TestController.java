@@ -1,8 +1,6 @@
 package controller;
 
-import annotation.Get;
 import annotation.MyAnnotation;
-import other.ModelView;
 
 @MyAnnotation(value = "Controller")
 public class TestController {

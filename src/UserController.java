@@ -1,7 +1,10 @@
 package controller;
 
 import annotation.Get;
+import annotation.ModelParam;
 import annotation.MyAnnotation;
+import annotation.Param;
+import other.Emp;
 import other.ModelView;
 
 @MyAnnotation(value = "Controller")
@@ -13,7 +16,7 @@ public class UserController {
         return "Bonjour.";
     }
     
-    public void setName(String name) {
+    public void setName() {
         this.name = name;
     }
     @Get("/mg-number")
@@ -50,4 +53,31 @@ public class UserController {
 
         return mv;
     }
+    
+    @Get("/user-info")
+    public ModelView getUserInfo(@Param(name = "username") String username, @Param(name = "age") int age) {
+        ModelView modelView = new ModelView(); 
+        modelView.setUrl("view.jsp");
+        modelView.add("username" , username);
+        modelView.add("age" , age); 
+        
+        return modelView;
+    }
+
+    @Get("/emp-info") 
+    public ModelView getEmpInfor(@ModelParam(name = "") Emp emp) {
+        ModelView modelView = new ModelView(); 
+        modelView.setUrl("view.jsp");
+        modelView.add("employe", emp);
+        return modelView;
+    }
+    
+    @Get("/test-Exam") 
+    public ModelView getExamen(@ModelParam(name = "emp") Emp emp , int noAnnotation ) {
+        ModelView modelView = new ModelView(); 
+        modelView.setUrl("view.jsp");
+        modelView.add("employe", emp);
+        return modelView;
+    }
+    
 }
