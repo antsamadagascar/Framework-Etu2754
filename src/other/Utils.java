@@ -15,9 +15,11 @@ import javax.servlet.http.HttpServletResponse;
 import annotation.ModelField;
 import annotation.ModelParam;
 import java.lang.reflect.Field;
+import com.google.gson.Gson;
 
 import annotation.Get;
 import annotation.Param;
+import annotation.RestApi;
 
 public class Utils {
 
@@ -44,6 +46,7 @@ public class Utils {
                 continue;
             }
             
+            // Boucle des methodes du controlleurs 
             Method[] methods = controller.getDeclaredMethods();
             if (methods == null) {
                 continue;
@@ -72,7 +75,9 @@ public class Utils {
                     }
     
                     urlMethodMap.put(url, controller.getName() + "." + method.getName());
+                    
                 }
+                
             }
         }
     }
@@ -92,7 +97,6 @@ public class Utils {
     }
 
     public static void displayFormData(PrintWriter out, HashMap<String, String> formData) {
-        out.println("<hr><h2>Form Data</h2>");
         formData.forEach((key, value) -> out.println("<p>" + key + ": " + value + "</p>"));
     }
 
@@ -110,27 +114,48 @@ public class Utils {
 
     public static void invokeMethod(Mapping mapping, PrintWriter out, HttpServletRequest request, HttpServletResponse response, HashMap<String, String> formData) throws ServletException, IOException {
         try {
-            Object result = executeControllerMethod(mapping, request);
-            processMethodResult(result, out, request, response);
+            Class<?> controllerClass = Class.forName(mapping.getClassName());
+            Object controllerInstance = controllerClass.getConstructor().newInstance();
+            
+            // Initialize MySession attributes
+            initializeMySessionAttributes(controllerInstance, request);
+            
+            Method method = findMethodWithRequestParams(controllerClass, mapping.getMethodName());
+            
+            System.out.println("Methode utiliser par invoke methode " + method);  //Debug
+            
+            executeControllerMethod(mapping, request, controllerInstance, response);
+        
+            // processMethodResult(result, method , out, request, response);
         } catch (Exception e) {
             // Log the error
             e.printStackTrace();
             
             // Set the error message as a request attribute
-            request.setAttribute("errorMessage", e.getMessage());
-    
-            // // Forward the request to the error page
-             RequestDispatcher dispatcher = request.getRequestDispatcher("/2754.jsp");
-             dispatcher.forward(request, response);
+            // request.setAttribute("errorMessage", e.getMessage());
+        
+            // Forward the request to the error page
+            // RequestDispatcher dispatcher = request.getRequestDispatcher("/2754.jsp");
+            // dispatcher.forward(request, response);
         }
     }
     
-    public static Object executeControllerMethod(Mapping mapping, HttpServletRequest request) throws ClassNotFoundException, NoSuchMethodException, InstantiationException, IllegalAccessException, InvocationTargetException ,ServletException{
-        Class<?> cls = Class.forName(mapping.getClassName());
+    public static Object executeControllerMethod(Mapping mapping, HttpServletRequest request, Object controllerInstance, HttpServletResponse response)
+        throws NoSuchMethodException, IllegalAccessException, InvocationTargetException, ServletException, IOException {
+        Class<?> cls = controllerInstance.getClass();
         Method method = findMethodWithRequestParams(cls, mapping.getMethodName());
-        Object obj = cls.getConstructor().newInstance();
+
         Object[] params = getMethodParams(method, request);
-        return method.invoke(obj, params);
+        Object result = method.invoke(controllerInstance, params);
+        
+        try (PrintWriter out = response.getWriter()) {
+            System.out.println("Process En cours d'execution ");
+            System.out.println("Le resultat de la fonction => "+result);
+            processMethodResult(result, method, out, request, response);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return result;
     }
 
     private static Method findMethodWithRequestParams(Class<?> cls, String methodName) throws NoSuchMethodException {
@@ -144,7 +169,7 @@ public class Utils {
     }
 
     public static Object[] getMethodParams(Method method, HttpServletRequest request)
-    throws ServletException {
+        throws ServletException {
         Parameter[] parameters = method.getParameters();
         Object[] paramValues = new Object[parameters.length];
 
@@ -176,6 +201,7 @@ public class Utils {
                     attributeName = parameters[i].getName();
                 }
 
+                // Parametre OBJECT : execution
                 populateModelFields(paramInstance, request, attributeName);
                 System.out.println("Nom attribute : " + attributeName);
 
@@ -186,14 +212,14 @@ public class Utils {
                 paramValues[i] = new MySession(request.getSession());
                 
             } else {
-                 throw new ServletException(" ETU 002754 ; Nom de l'erreur :  "+" Cannot find param or modelParam annotation for parameter: " + parameters[i].getName());
+                // throw new ServletException(" ETU 002754 ; Nom de l'erreur :  "+" Cannot find param or modelParam annotation for parameter: " + parameters[i].getName());
             }
         }
 
         return paramValues;
     }
 
-   private static void populateModelFields( Object instance, HttpServletRequest request , String nameModelAttribute ) throws ServletException {
+    private static void populateModelFields( Object instance, HttpServletRequest request , String nameModelAttribute ) throws ServletException {
         Field[] fields = instance.getClass().getDeclaredFields();
         for (Field field : fields) {
             ModelField modelField = field.getAnnotation(ModelField.class);
@@ -211,14 +237,30 @@ public class Utils {
     }
     
     private static Object convertToParameterType(Class<?> type, String value) {
+        if (value == null || value.isEmpty()) {
+            return getDefaultParameterValue(type); // Handle empty or null values
+        }
+        
         if (type == String.class) {
             return value;
         } else if (type == int.class || type == Integer.class) {
-            return Integer.parseInt(value);
+            try {
+                return Integer.parseInt(value);
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("Invalid integer value: " + value);
+            }
         } else if (type == long.class || type == Long.class) {
-            return Long.parseLong(value);
+            try {
+                return Long.parseLong(value);
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("Invalid long value: " + value);
+            }
         } else if (type == double.class || type == Double.class) {
-            return Double.parseDouble(value);
+            try {
+                return Double.parseDouble(value);
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("Invalid double value: " + value);
+            }
         } else if (type == boolean.class || type == Boolean.class) {
             return Boolean.parseBoolean(value);
         }
@@ -226,27 +268,79 @@ public class Utils {
         throw new IllegalArgumentException("Unsupported parameter type: " + type.getName());
     }
     
-    public static void processMethodResult(Object result, PrintWriter out, HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        if (result instanceof String) {
-            out.println("<p>Result: " + result + "</p>");
-        } else if (result instanceof ModelView) {
-            handleModelView((ModelView) result, request, response);
+    private static String getDefaultParameterValue(Class<?> type) {
+        if (type.equals(String.class)) {
+            return ""; // default empty string
+        } else if (type.equals(int.class) || type.equals(Integer.class)) {
+            return "0"; // default integer value
+        } else if (type.equals(boolean.class) || type.equals(Boolean.class)) {
+            return "false"; // default boolean value
+        } 
+        // Handle other default cases as needed
+        return null;
+    }
+
+    public static void processMethodResult(Object result, Method method, PrintWriter out, HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+
+        boolean isJson = method.isAnnotationPresent(RestApi.class);
+
+        if (isJson) {
+            response.setContentType("application/json");
         } else {
-            throw new ServletException("Unsupported return type: " + result.getClass().getName());
+            response.setContentType("text/html");
         }
+
+        if (result instanceof ModelView) {
+            handleModelView((ModelView) result, method, request, response, out);
+        } else {
+            // Appeler outputResponse pour afficher la réponse en JSON ou en texte normal
+            outputResponse(result, isJson, out);
+        }
+
         out.println("<p>Method executed successfully.</p>");
     }
 
-    public static void handleModelView(ModelView modelView, HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    public static void outputResponse(Object result, boolean isJson, PrintWriter out) {
+        if (isJson) {
+            // Si JSON est requis, convertir en JSON
+            Gson gson = new Gson();
+            out.println(gson.toJson(result));
+        } else {
+            // Sinon, afficher en texte normal
+            out.println(result instanceof String ? (String) result : result.toString());
+        }
+    }
+
+    public static void handleModelView(ModelView modelView, Method method, HttpServletRequest request, HttpServletResponse response, PrintWriter out) 
+        throws ServletException, IOException {
+    
+    if (method.isAnnotationPresent(RestApi.class)) {
+        try {
+            // Si la méthode est annotée avec @RestApi, on convertit le résultat en JSON
+            String jsonResult = convertToJson(modelView.getData(), out);
+            response.setContentType("application/json");
+            out.println(jsonResult);
+        } catch (Exception e) {
+            throw new ServletException("Erreur lors de la conversion en JSON", e);
+        }
+    
+    } else {
         String url = modelView.getUrl();
         if (url == null) {
-            response.sendError(HttpServletResponse.SC_NOT_FOUND, "La vue specifiee est introuvable");
+            response.sendError(HttpServletResponse.SC_NOT_FOUND, "La vue spécifiée est introuvable");
             return;
         }
+
+        // On place les données de ModelView dans les attributs de la requête
         modelView.getData().forEach(request::setAttribute);
+        
+        // Redirection vers la vue (JSP, HTML, etc.)
         RequestDispatcher dispatcher = request.getRequestDispatcher(url);
         dispatcher.forward(request, response);
     }
+}
+
 
     public static void findMethodsAnnotated(Class<?> clazz, HashMap<String, Mapping> methodList) {
         Method[] methods = clazz.getDeclaredMethods();
@@ -269,4 +363,28 @@ public class Utils {
         });
         return formData;
     }
+
+    public static void initializeMySessionAttributes(Object controllerInstance, HttpServletRequest request) throws IllegalAccessException {
+        Field[] fields = controllerInstance.getClass().getDeclaredFields();
+        for (Field field : fields) {
+            if (field.getType().equals(MySession.class)) {
+                field.setAccessible(true);
+                field.set(controllerInstance, new MySession(request.getSession()));
+            }
+        }
+    }
+
+    public static String convertToJson(Object object , PrintWriter out) throws ServletException {
+        out.println("DEBUG - CONVERT_JSON ");
+        try {
+            Gson gson = new Gson();
+            out.println(" Convert JSON result : "+ gson.toJson(object));
+            System.out.println(gson.toJson(object));
+            return gson.toJson(object);
+        } catch (Exception e) {
+            throw new ServletException("Erreur lors de la conversion en JSON", e);
+        }
+    }
+    
+
 }
