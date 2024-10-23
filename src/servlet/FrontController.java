@@ -12,7 +12,9 @@ import javax.servlet.http.HttpServletResponse;
 
 import controller.*;
 import other.*;
+import javax.servlet.annotation.MultipartConfig;
 
+@MultipartConfig
 public class FrontController extends HttpServlet {
 
     private String controllerPackage;
@@ -30,19 +32,29 @@ public class FrontController extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws IOException, ServletException {
-        processRequest(request, response);
+        try {
+            processRequest(request, response);
+        } catch (NoSuchMethodException | ClassNotFoundException | IOException | ServletException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        processRequest(request, response);
+        try {
+            processRequest(request, response);
+        } catch (NoSuchMethodException | ClassNotFoundException | IOException | ServletException e) {
+            e.printStackTrace();
+        }
     }
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
-            throws IOException, ServletException {
+            throws IOException, ServletException, NoSuchMethodException, ClassNotFoundException {
         PrintWriter out = response.getWriter();
+        
         try {
+        
             // Récupérer les paramètres du formulaire
             HashMap<String, String> formData = Utils.getFormParameters(request);
             // Afficher les informations de débogage et traiter la requête
@@ -50,19 +62,22 @@ public class FrontController extends HttpServlet {
             Utils.displayDebugInfo(out, relativeURI, methodList);
             Utils.displayFormData(out, formData); 
             Utils.executeMappingMethod(relativeURI, methodList, out, request, response, formData);
-        } finally {
-            out.close();
+        
         }
+        finally 
+        {    out.close();   }
     }
 
     // Section for "init()" Function 
     private void scanAndInitializeControllers() {
         try {
+
             this.scanner = new ControllerScanner();
             this.controllers = scanner.findControllers(controllerPackage);
             this.methodList = new HashMap<>();
             Utils.validateUniqueMappingValues(controllers);
             initMethodList();
+        
         } catch (Exception e) {
             e.printStackTrace();
             throw new RuntimeException("Initialization failed", e);
@@ -75,9 +90,9 @@ public class FrontController extends HttpServlet {
                 System.out.println("Scanning controller: " + controller.getName());
                 Utils.findMethodsAnnotated(controller, methodList);
             }
-        } else {
-            System.out.println("No controllers found");
-        }
+        } 
+        else 
+        {    System.out.println("No controllers found");    }
     }
     // End of Section 
 }
