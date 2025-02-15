@@ -1,7 +1,5 @@
 package other;
 
-import other.*;
-
 public class Main {
     public static void main(String[] args) {
         VerbAction action1 = new VerbAction("GET", "doSomething");

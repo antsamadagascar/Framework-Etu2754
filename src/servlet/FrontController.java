@@ -9,10 +9,12 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-
+import javax.servlet.annotation.MultipartConfig;
+import javax.servlet.http.HttpSession;
 import controller.*;
 import other.*;
-import javax.servlet.annotation.MultipartConfig;
+import exception.ValidationException;
+import annotation.ValidateForm;
 
 @MultipartConfig
 public class FrontController extends HttpServlet {
@@ -25,7 +27,7 @@ public class FrontController extends HttpServlet {
     @Override
     public void init(ServletConfig config) throws ServletException {
         super.init(config);
-        controllerPackage = Utils.initializeControllerPackage(config);
+       controllerPackage = Utils.initializeControllerPackage(config);
         scanAndInitializeControllers();
     }
 
@@ -50,23 +52,29 @@ public class FrontController extends HttpServlet {
     }
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
-            throws IOException, ServletException, NoSuchMethodException, ClassNotFoundException {
+        throws IOException, ServletException, NoSuchMethodException, ClassNotFoundException 
+    {
         PrintWriter out = response.getWriter();
-        
+
         try {
-        
-            // Récupérer les paramètres du formulaire
+
             HashMap<String, String> formData = Utils.getFormParameters(request);
-            // Afficher les informations de débogage et traiter la requête
             String relativeURI = Utils.getRelativeURI(request);
             Utils.displayDebugInfo(out, relativeURI, methodList);
             Utils.displayFormData(out, formData); 
             Utils.executeMappingMethod(relativeURI, methodList, out, request, response, formData);
-        
         }
+
+        catch (ValidationException ve) {
+            ModelView errorView = ve.getModelView();
+            Utils.handleModelView(errorView, request, response);
+        }   
+    
         finally 
         {    out.close();   }
     }
+
+
 
     // Section for "init()" Function 
     private void scanAndInitializeControllers() {
