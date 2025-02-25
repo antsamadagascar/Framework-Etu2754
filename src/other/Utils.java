@@ -3,11 +3,9 @@ package other;
 import java.io.*;
 import java.lang.reflect.*;
 import java.util.*;
-import javax.servlet.*;
-import javax.servlet.http.*;
+import jakarta.servlet.*;
+import jakarta.servlet.http.*;
 import com.google.gson.Gson;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import annotation.*;
 import annotation.field.ModelField;
@@ -19,7 +17,6 @@ import exception.*;
 
 public class Utils {
     static String pathDestinationFile = "C:\\Program Files\\Apache Software Foundation\\Tomcat 10.1\\webapps\\Test\\assets\\file";  
-
 
     // Initialize controller base package from web.xml
     public static String initializeControllerPackage(ServletConfig config) 
@@ -112,7 +109,7 @@ public class Utils {
         invokeMethod(mapping, out, request, response, formData);
     }
 
-    private static Method findMethod(Class<?> clazz, String methodName) 
+    public static Method findMethod(Class<?> clazz, String methodName) 
         throws NoSuchMethodException 
     {
         for (Method method : clazz.getDeclaredMethods()) {
@@ -147,8 +144,6 @@ public class Utils {
             handleError("Error invoking method: " + e.getMessage(), request, response);
         }
 
-        
-        // Throw encore l'exception du bas 
     }
 
     public static Object executeControllerMethod(Mapping mapping, HttpServletRequest request, 
@@ -166,8 +161,6 @@ public class Utils {
         
         return obj;
         
-        
-        // Throw encore l'exception du bas 
     }
 
     // Get method parameters from the request
@@ -228,40 +221,58 @@ public class Utils {
     }
 
     private static Object resolveModelParam(Parameter parameter, ModelParam modelParam, HttpServletRequest request) 
-    throws ServletException, ValidationException 
+        throws ServletException, ValidationException 
     {
         try {
+            // Instanciation de l'objet
             Object paramInstance = parameter.getType().getDeclaredConstructor().newInstance();
 
+            // Gestion du nom d'attribut
             String attributeName = modelParam.name();
             if (attributeName == null || attributeName.isEmpty()) {
                 attributeName = parameter.getName();
             }
 
+            // Population des champs
             populateModelFields(paramInstance, request, attributeName);
             
-            ValidateForm validator = new ValidateForm();
-            ValidationError validationError = validator.validateObject(paramInstance);
+            // Obtention de l'URL de redirection depuis l'annotation
+            String redirectUrl = modelParam.redirectOnError();
+            if (redirectUrl == null || redirectUrl.isEmpty()) {
+                throw new ServletException("redirectOnError must be specified in @ModelParam annotation");
+            }
             
-            if (validationError.hasErrors()) {
-                ValidationException ve = new ValidationException();
-                validationError.getFieldErrors().forEach((field, error) -> 
-                    ve.addError(field + ": " + error)
-                );
-                
+            try {
+                // Validation
+                ValidateForm validator = new ValidateForm();
+                validator.validateObject(paramInstance);
+                return paramInstance;
+            } catch (ValidationException ve) {
+                // Configuration de la ModelView pour la redirection
                 ModelView errorView = new ModelView();
-                errorView.setUrl("sprint14.jsp");
-                errorView.setValidationError(validationError);
+                errorView.setUrl(redirectUrl);
                 
+                // On utilise directement getValidationErrors() pour récupérer les erreurs
+                errorView.add("fieldErrors", ve.getValidationErrors());
+                
+                // Pour les valeurs des champs, on doit les récupérer à partir de l'objet
+                Map<String, String> fieldValues = new HashMap<>();
+                for (Field field : paramInstance.getClass().getDeclaredFields()) {
+                    field.setAccessible(true);
+                    Object value = field.get(paramInstance);
+                    if (value != null) {
+                        fieldValues.put(field.getName(), value.toString());
+                    }
+                }
+                errorView.add("fieldValues", fieldValues);
+                
+                // Configuration de l'exception
                 ve.setModelView(errorView);
+                ve.setRedirectUrl(redirectUrl);
                 
                 throw ve;
             }
-            
-            return paramInstance;
-        } 
-        catch (Exception e) {
-            e.printStackTrace();
+        } catch (Exception e) {
             if (e instanceof ValidationException) throw (ValidationException) e;
             throw new ServletException("Unable to instantiate parameter: " + parameter.getType().getName(), e);
         }
