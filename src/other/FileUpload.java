@@ -16,7 +16,6 @@ public class FileUpload {
         this.fileData = fileData;
     }
 
-    // Getters et setters
     public String getFileName() {
         return fileName;
     }

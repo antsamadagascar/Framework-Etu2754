@@ -1,20 +1,21 @@
 package servlet;
 
 import java.io.*;
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.List;
 
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.annotation.MultipartConfig;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.ServletConfig;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.annotation.MultipartConfig;
 import controller.*;
 import other.*;
+import exception.AuthenticationException;
 import exception.ValidationException;
-import annotation.ValidateForm;
+import auth.*;
 
 @MultipartConfig
 public class FrontController extends HttpServlet {
@@ -27,7 +28,7 @@ public class FrontController extends HttpServlet {
     @Override
     public void init(ServletConfig config) throws ServletException {
         super.init(config);
-       controllerPackage = Utils.initializeControllerPackage(config);
+        controllerPackage = Utils.initializeControllerPackage(config);
         scanAndInitializeControllers();
     }
 
@@ -52,27 +53,50 @@ public class FrontController extends HttpServlet {
     }
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
-        throws IOException, ServletException, NoSuchMethodException, ClassNotFoundException 
-    {
-        PrintWriter out = response.getWriter();
+    throws IOException, ServletException, NoSuchMethodException, ClassNotFoundException 
+{
+    PrintWriter out = response.getWriter();
 
-        try {
+    try {
+        HashMap<String, String> formData = Utils.getFormParameters(request);
+        String relativeURI = Utils.getRelativeURI(request);
+        
+        Mapping mapping = methodList.get(relativeURI);
+        if (mapping != null) {
+            Class<?> controllerClass = Class.forName(mapping.getClassName());
+            Method method = null;
 
-            HashMap<String, String> formData = Utils.getFormParameters(request);
-            String relativeURI = Utils.getRelativeURI(request);
-            Utils.displayDebugInfo(out, relativeURI, methodList);
-            Utils.displayFormData(out, formData); 
-            Utils.executeMappingMethod(relativeURI, methodList, out, request, response, formData);
+            String httpMethod = request.getMethod();
+            for (VerbAction verbAction : mapping.getVerbMethodes()) {
+                if (verbAction.getVerbe().equalsIgnoreCase(httpMethod)) {
+                    method = Utils.findMethod(controllerClass, verbAction.getMethode());
+                    break;
+                }
+            }
+
+            if (method != null) {
+                try {
+                    AuthenticationInterceptor.validateAuthentication(method, request);
+                } catch (AuthenticationException e) {
+                    request.getSession().setAttribute("requested_url", relativeURI);
+                    response.sendRedirect(request.getContextPath() + "/login-page");
+                    return;
+                }
+
+                Utils.executeMappingMethod(relativeURI, methodList, out, request, response, formData);
+            } else {
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            }
+        } else {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
         }
-
-        catch (ValidationException ve) {
-            ModelView errorView = ve.getModelView();
-            Utils.handleModelView(errorView, request, response);
-        }   
-    
-        finally 
-        {    out.close();   }
+    } catch (ValidationException ve) {
+        ModelView errorView = ve.getModelView();
+        Utils.handleModelView(errorView, request, response);
+    } finally {
+        out.close();
     }
+}
 
 
 
@@ -102,5 +126,4 @@ public class FrontController extends HttpServlet {
         else 
         {    System.out.println("No controllers found");    }
     }
-    // End of Section 
 }
