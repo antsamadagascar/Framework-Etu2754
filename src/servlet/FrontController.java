@@ -11,19 +11,12 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.annotation.MultipartConfig;
-<<<<<<< HEAD
-import controller.*;
-import other.*;
-import exception.AuthenticationException;
-import exception.ValidationException;
-=======
 import jakarta.servlet.http.HttpSession;
 import controller.*;
 import other.*;
 import exception.AuthentificationException;
 import exception.ValidationException;
 import annotation.ValidateForm;
->>>>>>> sprint-16
 import auth.*;
 
 @MultipartConfig
@@ -63,49 +56,6 @@ public class FrontController extends HttpServlet {
 
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
     throws IOException, ServletException, NoSuchMethodException, ClassNotFoundException 
-<<<<<<< HEAD
-{
-    PrintWriter out = response.getWriter();
-
-    try {
-        HashMap<String, String> formData = Utils.getFormParameters(request);
-        String relativeURI = Utils.getRelativeURI(request);
-        
-        Mapping mapping = methodList.get(relativeURI);
-        if (mapping != null) {
-            Class<?> controllerClass = Class.forName(mapping.getClassName());
-            Method method = null;
-
-            String httpMethod = request.getMethod();
-            for (VerbAction verbAction : mapping.getVerbMethodes()) {
-                if (verbAction.getVerbe().equalsIgnoreCase(httpMethod)) {
-                    method = Utils.findMethod(controllerClass, verbAction.getMethode());
-                    break;
-                }
-            }
-
-            if (method != null) {
-                try {
-                    AuthenticationInterceptor.validateAuthentication(method, request);
-                } catch (AuthenticationException e) {
-                    request.getSession().setAttribute("requested_url", relativeURI);
-                    response.sendRedirect(request.getContextPath() + "/login-page");
-                    return;
-                }
-
-                Utils.executeMappingMethod(relativeURI, methodList, out, request, response, formData);
-            } else {
-                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            }
-        } else {
-            response.sendError(HttpServletResponse.SC_NOT_FOUND);
-        }
-    } catch (ValidationException ve) {
-        ModelView errorView = ve.getModelView();
-        Utils.handleModelView(errorView, request, response);
-    } finally {
-        out.close();
-=======
     {
         PrintWriter out = response.getWriter();
 
@@ -159,9 +109,7 @@ public class FrontController extends HttpServlet {
         } finally {
             out.close();
         }
->>>>>>> sprint-16
     }
-}
 
 
 
