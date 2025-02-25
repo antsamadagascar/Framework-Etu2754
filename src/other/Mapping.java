@@ -1,8 +1,8 @@
 package other;
 
+import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
-import java.util.HashSet;
 
 public class Mapping {
 
@@ -60,14 +60,11 @@ public class Mapping {
         return true; // Si tout correspond, retourner true
     }
 
-    
-
     @Override
     public int hashCode() {
         return Objects.hash(className, verbMethodes);
     }
 
-    // Méthode toString
     @Override
     public String toString() {
         return "Mapping{" +

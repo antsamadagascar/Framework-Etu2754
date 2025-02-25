@@ -1,12 +1,12 @@
 package annotation;
 
+import exception.ValidationError;
+import exception.ValidationException;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.lang.reflect.Field;
-
-import exception.ValidationError;
 
 public class ValidateForm {
     
@@ -41,7 +41,7 @@ public class ValidateForm {
         String message() default "La longueur n'est pas valide";
     }
 
-    public ValidationError validateObject(Object obj) {
+    public ValidationError validateObject(Object obj) throws ValidationException {
         ValidationError validationError = new ValidationError();
 
         for (Field field : obj.getClass().getDeclaredFields()) {
@@ -53,9 +53,18 @@ public class ValidateForm {
             }
         }
 
+        if (validationError.hasErrors()) {
+            // On utilise les méthodes existantes pour transférer les erreurs
+            ValidationException ve = new ValidationException();
+            validationError.getFieldErrors().forEach((field, error) -> 
+                ve.addError(field, error)
+            );
+            throw ve;
+        }
+
         return validationError;
     }
-
+    
     private void validateField(Field field, Object obj, ValidationError validationError) 
             throws IllegalAccessException {
         

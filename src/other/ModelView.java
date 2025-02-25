@@ -1,10 +1,7 @@
 package other ;
 
 import exception.ValidationError;
-
 import java.util.HashMap;
-import java.util.Map;
-
 
 public class ModelView {
     private HashMap<String, Object> data;
@@ -45,20 +42,4 @@ public class ModelView {
         return hasErrors;
     }
 
-    public static void main(String[] args) {
-        // Création d'une instance de ModelView
-        ModelView mv = new ModelView();
-
-        // Définition de l'URL
-        mv.setUrl("https://example.com");
-
-        // Ajout de données
-        mv.add("username", "john_doe");
-        mv.add("age", 30);
-        mv.add("isLoggedIn", true);
-
-        // Affichage des données
-        System.out.println("URL: " + mv.getUrl());
-        System.out.println("Data: " + mv.getData());
-    }
 }
