@@ -34,20 +34,6 @@ Un framework MVC léger et simple pour le développement d'applications web Java
 </servlet-mapping>
 ```
 
-## 🚀 Installation rapide
-
-1. Configurez le `web.xml` :
-```xml
-<servlet>
-    <servlet-name>FrontController</servlet-name>
-    <servlet-class>controller.FrontController</servlet-class>
-</servlet>
-<servlet-mapping>
-    <servlet-name>FrontController</servlet-name>
-    <url-pattern>/</url-pattern>
-</servlet-mapping>
-```
-
 2. Créez vos contrôleurs avec les annotations
 
 ## 📖 Utilisation
