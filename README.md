@@ -16,7 +16,7 @@ Un framework MVC léger et simple pour le développement d'applications web Java
 
 ## 📦 Installation
 
-1. Ajoutez le framework.jar à votre projet Java
+1. Ajoutez le framework-mvc-2754-v1.jar à votre projet Java
 2. Configurez le FrontController dans votre `web.xml`
 3. Créez vos contrôleurs avec les annotations appropriées
 
@@ -26,7 +26,7 @@ Un framework MVC léger et simple pour le développement d'applications web Java
 ```xml
 <servlet>
     <servlet-name>FrontController</servlet-name>
-    <servlet-class>controller.FrontController</servlet-class>
+    <servlet-class>mg.itu.nyantsa.servlet.FrontController</servlet-class>
 </servlet>
 <servlet-mapping>
     <servlet-name>FrontController</servlet-name>
