@@ -163,44 +163,115 @@ public class Utils {
         
     }
 
-    // Get method parameters from the request
-    public static Object[] getMethodParams(Method method, HttpServletRequest request) 
-        throws ServletException, IOException, ValidationException 
-    {
+    public static Object[] getMethodParams(Method method, HttpServletRequest request)
+    throws ServletException, IOException, ValidationException {
         Parameter[] parameters = method.getParameters();
         Object[] paramValues = new Object[parameters.length];
 
         for (int i = 0; i < parameters.length; i++) {
-            Param param = parameters[i].getAnnotation(Param.class);
-            ModelParam modelParam = parameters[i].getAnnotation(ModelParam.class);
+            Parameter parameter = parameters[i];
+            Param param = parameter.getAnnotation(Param.class);
+            ModelParam modelParam = parameter.getAnnotation(ModelParam.class);
 
-            if (parameters[i].getType().equals(FileUpload.class)) {
-                // Récupérer le fichier
-                Part filePart = request.getPart(param.name());
-                String fileName = Paths.get(filePart.getSubmittedFileName()).getFileName().toString();
-                InputStream fileContent = filePart.getInputStream();
+            if (param != null) {
+                String paramName = param.name();
+                Class<?> paramType = parameter.getType();
+                System.out.println("Traitement paramètre: " + paramName + ", Type: " + paramType.getName());
 
-                // Convertir en byte[]
-                byte[] fileData = new byte[fileContent.available()];
-                fileContent.read(fileData);
+                // Gestion des listes
+                if (paramType.equals(List.class) && parameter.getParameterizedType() instanceof ParameterizedType) {
+                    ParameterizedType pType = (ParameterizedType) parameter.getParameterizedType();
+                    Type listType = pType.getActualTypeArguments()[0];
 
-                // Créer une instance de FileUpload
-                FileUpload fileUpload = new FileUpload(fileName, pathDestinationFile , fileData);
-                paramValues[i] = fileUpload;
-            } 
-            
-            else {
-                // Gérer les autres types de paramètres
-                paramValues[i] = resolveParameterValue(parameters[i], param, modelParam, request);
+                    if (listType.equals(FileUpload.class)) {
+                        // Gérer List<FileUpload>
+                        List<FileUpload> fileUploads = new ArrayList<>();
+                        Collection<Part> parts = request.getParts();
+                        for (Part filePart : parts) {
+                            if (filePart.getName().equals(paramName) && filePart.getSubmittedFileName() != null) {
+                                String fileName = Paths.get(filePart.getSubmittedFileName()).getFileName().toString();
+                                InputStream fileContent = filePart.getInputStream();
+                                byte[] fileData = fileContent.readAllBytes();
+                                FileUpload fileUpload = new FileUpload(fileName, pathDestinationFile, fileData);
+                                fileUploads.add(fileUpload);
+                            }
+                        }
+                        paramValues[i] = fileUploads;
+                        System.out.println("List<FileUpload> pour " + paramName + ": " + fileUploads.size() + " fichiers");
+                    } else if (listType.equals(Integer.class)) {
+                        // Gérer List<Integer>
+                        String[] values = request.getParameterValues(paramName);
+                        List<Integer> intList = new ArrayList<>();
+                        if (values != null) {
+                            for (String value : values) {
+                                try {
+                                    intList.add(Integer.parseInt(value));
+                                } catch (NumberFormatException e) {
+                                    System.out.println("Erreur de conversion pour " + paramName + ": " + value);
+                                }
+                            }
+                        }
+                        paramValues[i] = intList;
+                        System.out.println("List<Integer> pour " + paramName + ": " + intList);
+                    } else if (listType.equals(String.class)) {
+                        // Gérer List<String>
+                        String[] values = request.getParameterValues(paramName);
+                        List<String> stringList = values != null ? Arrays.asList(values) : new ArrayList<>();
+                        paramValues[i] = stringList;
+                        System.out.println("List<String> pour " + paramName + ": " + stringList);
+                    } else {
+                        paramValues[i] = resolveParameterValue(parameter, param, modelParam, request);
+                    }
+                }
+                // Gestion de FileUpload (un seul fichier)
+                else if (paramType.equals(FileUpload.class)) {
+                    Part filePart = request.getPart(paramName);
+                    if (filePart != null && filePart.getSubmittedFileName() != null) {
+                        String fileName = Paths.get(filePart.getSubmittedFileName()).getFileName().toString();
+                        InputStream fileContent = filePart.getInputStream();
+                        byte[] fileData = fileContent.readAllBytes();
+                        FileUpload fileUpload = new FileUpload(fileName, pathDestinationFile, fileData);
+                        paramValues[i] = fileUpload;
+                        System.out.println("FileUpload pour " + paramName + ": " + fileName);
+                    } else {
+                        paramValues[i] = null;
+                        System.out.println("Aucun fichier pour " + paramName);
+                    }
+                }
+                // Gestion des types primitifs ou simples
+                else if (paramType.equals(Integer.class) || paramType.equals(int.class)) {
+                    String value = request.getParameter(paramName);
+                    paramValues[i] = value != null ? Integer.parseInt(value) : 0;
+                    System.out.println("Integer pour " + paramName + ": " + paramValues[i]);
+                } else if (paramType.equals(String.class)) {
+                    paramValues[i] = request.getParameter(paramName);
+                    System.out.println("String pour " + paramName + ": " + paramValues[i]);
+                }
+                // Gestion de MySession avec annotation @Param
+                else if (paramType.equals(MySession.class)) {
+                    paramValues[i] = new MySession(request.getSession());
+                    System.out.println("MySession pour " + paramName);
+                } else {
+                    paramValues[i] = resolveParameterValue(parameter, param, modelParam, request);
+                    System.out.println("Valeur résolue pour " + paramName + ": " + paramValues[i]);
+                }
+            } else {
+                // Paramètres sans annotation @Param
+                if (parameter.getType().equals(HttpServletRequest.class)) {
+                    paramValues[i] = request;
+                    System.out.println("HttpServletRequest injecté");
+                } else if (parameter.getType().equals(MySession.class)) {
+                    paramValues[i] = new MySession(request.getSession());
+                    System.out.println("MySession injecté sans annotation pour " + parameter.getName());
+                } else {
+                    paramValues[i] = null;
+                    System.out.println("Paramètre non annoté ignoré: " + parameter.getName());
+                }
             }
         }
 
         return paramValues;
-
-        
-        // Throw encore l'exception du bas 
-    }
-
+        }
 
     private static Object resolveParameterValue(Parameter parameter, Param param, 
                                                 ModelParam modelParam, HttpServletRequest request) 

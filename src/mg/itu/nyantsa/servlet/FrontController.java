@@ -63,13 +63,11 @@ public class FrontController extends HttpServlet {
             HashMap<String, String> formData = Utils.getFormParameters(request);
             String relativeURI = Utils.getRelativeURI(request);
             
-            // Récupérer la méthode à exécuter
             Mapping mapping = methodList.get(relativeURI);
             if (mapping != null) {
                 Class<?> controllerClass = Class.forName(mapping.getClassName());
                 Method method = null;
                 
-                // Trouver la méthode correspondant au verbe HTTP
                 String httpMethod = request.getMethod();
                 for (VerbAction verbAction : mapping.getVerbMethodes()) {
                     if (verbAction.getVerbe().equalsIgnoreCase(httpMethod)) {
@@ -79,19 +77,17 @@ public class FrontController extends HttpServlet {
                 }
                 
                 if (method != null) {
-                    // Vérifier l'authentification avec la classe ET la méthode
                     try {
                         AuthentificationInterceptor.validateAuthentification(method, controllerClass, request);
                     
                     } catch (AuthentificationException e) {
                         System.err.println("Message d'erreur dans l'authentification de la methode ou dela classe = " +e.getMessage());
-                        // Stocker l'URL demandée pour redirection après login
+
                         request.getSession().setAttribute("requested_url", relativeURI);
                         response.sendRedirect(request.getContextPath() + "/login-page");
                         return;
                     }
-                    
-                    // Continuer avec l'exécution normale
+                
                     Utils.displayDebugInfo(out, relativeURI, methodList);
                     Utils.displayFormData(out, formData); 
                     Utils.executeMappingMethod(relativeURI, methodList, out, request, response, formData);
@@ -110,8 +106,6 @@ public class FrontController extends HttpServlet {
             out.close();
         }
     }
-
-
 
     // Section for "init()" Function 
     private void scanAndInitializeControllers() {
